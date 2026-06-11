@@ -14,6 +14,20 @@ from config import (
 
 
 # ============================================================
+# KONFIGURASI WARNA
+# ============================================================
+
+STATUS_COLORS = {
+    "Tepat Waktu": "#1f77b4",        # biru
+    "Lulus": "#1f77b4",              # biru, jika label memakai kata Lulus
+    "Tidak Tepat Waktu": "#d62728",  # merah
+    "Tidak Lulus": "#d62728",        # merah, jika label memakai kata Tidak Lulus
+}
+
+DEFAULT_COLOR = "#7f7f7f"
+
+
+# ============================================================
 # FUNGSI DASAR VISUALISASI
 # ============================================================
 
@@ -34,37 +48,112 @@ def format_filename(column_name: str) -> str:
     return column_name.lower().replace(" ", "_")
 
 
-def plot_numeric_distribution(dataframe: pd.DataFrame, column: str, output_dir, title_prefix: str):
+def get_status_color(status_value):
     """
-    Membuat histogram untuk fitur numerik.
+    Mengambil warna berdasarkan label status kelulusan.
+    """
+    status_text = str(status_value)
+    return STATUS_COLORS.get(status_text, DEFAULT_COLOR)
+
+
+# ============================================================
+# VISUALISASI DISTRIBUSI FITUR BERDASARKAN STATUS KELULUSAN
+# ============================================================
+
+def plot_target_distribution(dataframe: pd.DataFrame, output_dir, title_prefix: str):
+    """
+    Membuat bar chart distribusi target Status_Kelulusan.
+    Warna:
+    - Tepat Waktu / Lulus = biru
+    - Tidak Tepat Waktu / Tidak Lulus = merah
     """
     plt.figure(figsize=(8, 5))
 
-    series = dataframe[column].dropna()
+    counts = dataframe[TARGET_COLUMN].fillna("Missing").astype(str).value_counts()
+    colors = [get_status_color(label) for label in counts.index]
 
-    plt.hist(series, bins=20, edgecolor="black")
-    plt.title(f"{title_prefix} - Distribusi {column}")
+    plt.bar(counts.index, counts.values, color=colors)
+    plt.title(f"{title_prefix} - Distribusi {TARGET_COLUMN}")
+    plt.xlabel(TARGET_COLUMN)
+    plt.ylabel("Jumlah Data")
+    plt.xticks(rotation=15, ha="right")
+    plt.grid(axis="y", alpha=0.3)
+
+    output_path = output_dir / f"distribusi_{format_filename(TARGET_COLUMN)}.png"
+    save_current_figure(output_path)
+
+
+def plot_numeric_distribution_by_target(dataframe: pd.DataFrame, column: str, output_dir, title_prefix: str):
+    """
+    Membuat histogram fitur numerik dengan pembeda warna berdasarkan Status_Kelulusan.
+    """
+    plt.figure(figsize=(8, 5))
+
+    target_values = dataframe[TARGET_COLUMN].dropna().astype(str).unique()
+
+    for target_value in target_values:
+        subset = dataframe[dataframe[TARGET_COLUMN].astype(str) == target_value]
+        series = subset[column].dropna()
+
+        if series.empty:
+            continue
+
+        plt.hist(
+            series,
+            bins=20,
+            alpha=0.65,
+            edgecolor="black",
+            label=target_value,
+            color=get_status_color(target_value),
+        )
+
+    plt.title(f"{title_prefix} - Distribusi {column} Berdasarkan Status Kelulusan")
     plt.xlabel(column)
     plt.ylabel("Frekuensi")
+    plt.legend(title=TARGET_COLUMN)
     plt.grid(axis="y", alpha=0.3)
 
     output_path = output_dir / f"distribusi_{format_filename(column)}.png"
     save_current_figure(output_path)
 
 
-def plot_categorical_distribution(dataframe: pd.DataFrame, column: str, output_dir, title_prefix: str):
+def plot_categorical_distribution_by_target(dataframe: pd.DataFrame, column: str, output_dir, title_prefix: str):
     """
-    Membuat bar chart untuk fitur kategorikal dan target.
+    Membuat bar chart fitur kategorikal dengan pembeda warna berdasarkan Status_Kelulusan.
     """
-    plt.figure(figsize=(8, 5))
+    plot_data = dataframe.copy()
+    plot_data[column] = plot_data[column].fillna("Missing").astype(str)
+    plot_data[TARGET_COLUMN] = plot_data[TARGET_COLUMN].fillna("Missing").astype(str)
 
-    counts = dataframe[column].fillna("Missing").astype(str).value_counts()
+    cross_tab = pd.crosstab(plot_data[column], plot_data[TARGET_COLUMN])
 
-    plt.bar(counts.index, counts.values)
-    plt.title(f"{title_prefix} - Distribusi {column}")
+    plt.figure(figsize=(9, 5))
+
+    x_positions = range(len(cross_tab.index))
+    target_labels = list(cross_tab.columns)
+    total_targets = len(target_labels)
+
+    if total_targets == 0:
+        return
+
+    bar_width = 0.8 / total_targets
+
+    for index, target_label in enumerate(target_labels):
+        offset = (index - (total_targets - 1) / 2) * bar_width
+
+        plt.bar(
+            [x + offset for x in x_positions],
+            cross_tab[target_label],
+            width=bar_width,
+            label=target_label,
+            color=get_status_color(target_label),
+        )
+
+    plt.title(f"{title_prefix} - Distribusi {column} Berdasarkan Status Kelulusan")
     plt.xlabel(column)
     plt.ylabel("Jumlah Data")
-    plt.xticks(rotation=25, ha="right")
+    plt.xticks(list(x_positions), cross_tab.index, rotation=25, ha="right")
+    plt.legend(title=TARGET_COLUMN)
     plt.grid(axis="y", alpha=0.3)
 
     output_path = output_dir / f"distribusi_{format_filename(column)}.png"
@@ -74,16 +163,19 @@ def plot_categorical_distribution(dataframe: pd.DataFrame, column: str, output_d
 def visualize_feature_distributions(dataframe: pd.DataFrame, output_dir, title_prefix: str):
     """
     Membuat visualisasi distribusi seluruh fitur dan target.
-    - Fitur numerik divisualisasikan dengan histogram.
-    - Fitur kategorikal dan target divisualisasikan dengan bar chart.
+
+    Revisi:
+    - Fitur numerik divisualisasikan berdasarkan Status_Kelulusan.
+    - Fitur kategorikal divisualisasikan berdasarkan Status_Kelulusan.
+    - Target Status_Kelulusan diberi warna biru dan merah.
     """
     for column in NUMERIC_FEATURES:
-        plot_numeric_distribution(dataframe, column, output_dir, title_prefix)
+        plot_numeric_distribution_by_target(dataframe, column, output_dir, title_prefix)
 
     for column in CATEGORICAL_FEATURES:
-        plot_categorical_distribution(dataframe, column, output_dir, title_prefix)
+        plot_categorical_distribution_by_target(dataframe, column, output_dir, title_prefix)
 
-    plot_categorical_distribution(dataframe, TARGET_COLUMN, output_dir, title_prefix)
+    plot_target_distribution(dataframe, output_dir, title_prefix)
 
 
 def visualize_distributions_before_preprocessing(dataframe: pd.DataFrame):
@@ -122,6 +214,7 @@ def visualize_duplicate_audit(duplicate_audit: pd.DataFrame):
     plt.bar(
         duplicate_audit["Tahap"],
         duplicate_audit["Jumlah_Duplikat_Penuh"],
+        color="#7f7f7f",
     )
 
     plt.title("Audit Duplikat Penuh")
@@ -162,7 +255,7 @@ def visualize_row_count_audit(duplicate_audit: pd.DataFrame, conflict_audit: pd.
     audit_df = pd.DataFrame(rows)
 
     plt.figure(figsize=(8, 5))
-    plt.bar(audit_df["Tahap"], audit_df["Jumlah_Baris"])
+    plt.bar(audit_df["Tahap"], audit_df["Jumlah_Baris"], color="#7f7f7f")
 
     plt.title("Audit Jumlah Baris Data")
     plt.xlabel("Tahap")
@@ -183,6 +276,7 @@ def visualize_conflict_id_audit(conflict_audit: pd.DataFrame):
     plt.bar(
         conflict_audit["Tahap"],
         conflict_audit["Jumlah_ID_Bermasalah"],
+        color="#7f7f7f",
     )
 
     plt.title("Audit Konflik ID Mahasiswa")
@@ -215,6 +309,7 @@ def visualize_missing_value_audit(missing_audit: pd.DataFrame):
         plot_df["Missing_Sebelum"],
         width=width,
         label="Sebelum Imputasi",
+        color="#d62728",
     )
 
     plt.bar(
@@ -222,6 +317,7 @@ def visualize_missing_value_audit(missing_audit: pd.DataFrame):
         plot_df["Missing_Sesudah"],
         width=width,
         label="Sesudah Imputasi",
+        color="#1f77b4",
     )
 
     plt.title("Audit Missing Value")
@@ -265,19 +361,21 @@ def visualize_category_standardization(category_audit: pd.DataFrame):
         plt.figure(figsize=(10, 5))
 
         if len(stages) == 1:
-            plt.bar(x, pivot_data[stages[0]], width=width, label=stages[0])
+            plt.bar(x, pivot_data[stages[0]], width=width, label=stages[0], color="#7f7f7f")
         else:
             plt.bar(
                 [position - width / 2 for position in x],
                 pivot_data[stages[0]],
                 width=width,
                 label=stages[0],
+                color="#d62728",
             )
             plt.bar(
                 [position + width / 2 for position in x],
                 pivot_data[stages[1]],
                 width=width,
                 label=stages[1],
+                color="#1f77b4",
             )
 
         plt.title(f"Audit Standardisasi Kategori - {column}")
@@ -312,6 +410,7 @@ def visualize_iqr_audit(iqr_result: pd.DataFrame):
         iqr_result["Outlier_Sebelum"],
         width=width,
         label="Sebelum Capping",
+        color="#d62728",
     )
 
     plt.bar(
@@ -319,6 +418,7 @@ def visualize_iqr_audit(iqr_result: pd.DataFrame):
         iqr_result["Outlier_Sesudah"],
         width=width,
         label="Sesudah Capping",
+        color="#1f77b4",
     )
 
     plt.title("Audit Outlier IQR")
@@ -338,7 +438,7 @@ def visualize_split_data(train_count: int, test_count: int):
     """
     plt.figure(figsize=(7, 5))
 
-    plt.bar(["Training", "Testing"], [train_count, test_count])
+    plt.bar(["Training", "Testing"], [train_count, test_count], color=["#1f77b4", "#d62728"])
 
     plt.title("Audit Split Data")
     plt.xlabel("Jenis Data")
@@ -381,6 +481,7 @@ def visualize_model_comparison(evaluation_df: pd.DataFrame):
         decision_tree_values,
         width=width,
         label="Decision Tree",
+        color="#1f77b4",
     )
 
     plt.bar(
@@ -388,6 +489,7 @@ def visualize_model_comparison(evaluation_df: pd.DataFrame):
         random_forest_values,
         width=width,
         label="Random Forest",
+        color="#ff7f0e",
     )
 
     plt.title("Perbandingan Evaluasi Model")
@@ -448,7 +550,7 @@ def visualize_feature_importance(feature_importance_df: pd.DataFrame):
 
     plt.figure(figsize=(9, 5))
 
-    plt.barh(sorted_df["Feature"], sorted_df["Importance"])
+    plt.barh(sorted_df["Feature"], sorted_df["Importance"], color="#1f77b4")
 
     plt.title("Feature Importance Random Forest")
     plt.xlabel("Importance")
