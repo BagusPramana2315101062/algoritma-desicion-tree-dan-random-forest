@@ -237,7 +237,7 @@ def tune_model(model_name, model, param_grid, X_train, y_train):
         param_grid=param_grid,
         scoring="f1_macro",
         cv=cv_strategy,
-        n_jobs=-1,
+        n_jobs=1,
         refit=True,
     )
 
@@ -248,7 +248,6 @@ def tune_model(model_name, model, param_grid, X_train, y_train):
     cv_result_df.to_csv(cv_result_path, index=False, encoding="utf-8-sig")
 
     return grid_search
-
 
 # ============================================================
 # EVALUASI MODEL
