@@ -10,6 +10,7 @@ from config import (
     EVALUATION_RESULT_PATH,
     FEATURE_IMPORTANCE_PATH,
     OUTPUT_DIR,
+    TARGET_COLUMN,
 )
 
 from preprocessing import (
@@ -195,12 +196,18 @@ def main():
     print(f"Jumlah kolom dataset final : {dataframe_final.shape[1]}")
 
     # ========================================================
-    # 12. PEMISAHAN FITUR DAN TARGET
+    # 12. PEMISAHAN FITUR DAN TARGET UNTUK MODELING
     # ========================================================
-    print_section("12. Pemisahan fitur dan target")
-    X, y = split_features_target(dataframe_final)
+    print_section("12. Pemisahan fitur dan target untuk modeling")
 
-    print(f"Jumlah data fitur  : {X.shape}")
+    # Untuk modeling, gunakan data setelah standardisasi kategori.
+    # Missing value dan IQR capping akan ditangani di dalam Pipeline model
+    # agar tidak terjadi data leakage.
+    dataframe_modeling = dataframe_standard.dropna(subset=[TARGET_COLUMN]).copy()
+
+    X, y = split_features_target(dataframe_modeling)
+
+    print(f"Jumlah data fitur : {X.shape}")
     print(f"Jumlah data target : {y.shape}")
 
     # ========================================================

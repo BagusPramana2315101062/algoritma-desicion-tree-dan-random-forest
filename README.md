@@ -123,6 +123,19 @@ Tahapan yang dilakukan adalah:
 
 ---
 
+## Validasi Model dan Pencegahan Data Leakage
+
+Pada project ini, preprocessing yang bersifat statistik seperti imputasi missing value dan IQR capping sebaiknya dilakukan di dalam pipeline model. Hal ini bertujuan agar nilai median, modus, dan batas outlier hanya dipelajari dari data training, bukan dari seluruh dataset.
+
+Dengan pendekatan ini, data testing tetap berfungsi sebagai data yang belum pernah dilihat oleh model, sehingga hasil evaluasi menjadi lebih objektif.
+
+Validasi model dilakukan menggunakan:
+
+- Train-test split dengan stratifikasi target;
+- Stratified K-Fold Cross Validation;
+- GridSearchCV untuk pencarian hyperparameter terbaik;
+- Metrik evaluasi accuracy, precision, recall, dan F1-score.
+
 ## 5. Preprocessing Data
 
 ### 5.1 Penghapusan Duplikat Penuh
