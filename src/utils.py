@@ -51,19 +51,14 @@ def print_section(title: str):
 def get_mode_value(series: pd.Series):
     """
     Mengambil nilai modus dari sebuah Series.
-    Jika modus kosong, fungsi mengembalikan nilai pertama yang tersedia.
+    Jika Series kosong, fungsi mengembalikan None.
     """
     non_null_series = series.dropna()
 
     if non_null_series.empty:
         return None
 
-    mode_values = non_null_series.mode()
-
-    if not mode_values.empty:
-        return mode_values.iloc[0]
-
-    return non_null_series.iloc[0]
+    return non_null_series.mode().iloc[0]
 
 
 def clean_text_value(value):

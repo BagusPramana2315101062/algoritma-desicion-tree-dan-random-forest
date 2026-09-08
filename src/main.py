@@ -1,5 +1,3 @@
-import pandas as pd
-
 from config import (
     AUDIT_DATASET_PATH,
     DUPLICATE_AUDIT_PATH,
