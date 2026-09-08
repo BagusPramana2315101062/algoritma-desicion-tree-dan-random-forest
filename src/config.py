@@ -18,7 +18,7 @@ VISUAL_AUDIT_DIR = VISUAL_DIR / "03_audit_preprocessing"
 VISUAL_EVALUATION_DIR = VISUAL_DIR / "04_evaluasi_model"
 VISUAL_FEATURE_IMPORTANCE_DIR = VISUAL_DIR / "05_feature_importance"
 
-DATASET_PATH = DATA_DIR / "dataset_uts_dirty_preprocessing.xlsx"
+DATASET_PATH = DATA_DIR / "student_data_raw.xlsx"
 
 # ============================================================
 # KONFIGURASI DATASET
