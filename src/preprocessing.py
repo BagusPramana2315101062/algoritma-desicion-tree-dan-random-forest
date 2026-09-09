@@ -25,7 +25,7 @@ def load_dataset() -> pd.DataFrame:
     if not DATASET_PATH.exists():
         raise FileNotFoundError(
             f"Dataset tidak ditemukan di path: {DATASET_PATH}\n"
-            "Pastikan file dataset_uts_dirty_preprocessing.xlsx berada di folder data."
+            "Pastikan file student_data_raw.xlsx berada di folder data."
         )
 
     dataframe = pd.read_excel(DATASET_PATH)

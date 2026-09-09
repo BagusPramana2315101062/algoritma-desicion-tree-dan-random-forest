@@ -223,7 +223,7 @@ Confusion matrices (rows = actual, columns = predicted; class order: Tepat Waktu
 | Model | Matrix |
 |---|---|
 | Decision Tree | [[81, 11], [7, 21]] |
-| Random Forest | [[86, 6], [9, 19]] |
+| Random Forest | [[87, 5], [9, 19]] |
 
 ![Confusion Matrix - Decision Tree](results/confusion_matrix_decision_tree.png)
 

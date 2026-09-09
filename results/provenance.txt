@@ -79,7 +79,7 @@ Official baseline metrics (sklearn 1.5.2, random_state=42):
     Macro Recall     : 0.8121
     Macro F1         : 0.8282
     Confusion matrix (rows=actual [Tepat Waktu, Tidak Tepat Waktu]):
-                      [[86, 6], [9, 19]]
+                      [[87, 5], [9, 19]]
 
 Best parameters (derived from cv_results_*.csv rows with
 rank_test_score == 1; single rank-1 row each):
@@ -125,3 +125,12 @@ Feature importance (Random Forest, official run):
   Jam_Belajar 0.4112, IPK 0.3030, Kehadiran 0.1012, Total_SKS 0.0663,
   Jumlah_Organisasi 0.0645, Penghasilan_Orang_Tua 0.0286,
   Kualitas_Internet 0.0252
+
+Post-audit correction:
+  The textual Random Forest confusion matrix was corrected from
+  [[86, 6], [9, 19]] to [[87, 5], [9, 19]].
+  Official metrics and generated pipeline artifacts were unchanged.
+  This was a documentation transcription fix only; the experiment was
+  NOT rerun. The correction is consistent with the committed
+  classification report, the 0.8833 accuracy (106/120), and the
+  committed confusion_matrix_random_forest.png.
