@@ -364,6 +364,12 @@ Generated artifacts:
 
 ---
 
+## License
+
+This project is released under the MIT License. See [LICENSE](LICENSE).
+
+---
+
 ## Author
 
 **Bagus Pramana** — Computer Science Student
