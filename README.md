@@ -1,514 +1,371 @@
-# Implementasi Decision Tree dan Random Forest untuk Klasifikasi Status Kelulusan Mahasiswa
+# Student Graduation Prediction with Decision Tree & Random Forest
 
-Project ini merupakan implementasi algoritma **Decision Tree** dan **Random Forest** untuk melakukan klasifikasi status kelulusan mahasiswa. Dataset yang digunakan memuat beberapa fitur akademik dan non-akademik, seperti IPK, kehadiran, jumlah organisasi, total SKS, jam belajar, penghasilan orang tua, dan kualitas internet.
-
-Project ini disusun untuk kebutuhan presentasi materi teori dan implementasi algoritma Decision Tree serta Random Forest dalam mata kuliah Data Mining.
+Binary classification of on-time vs not-on-time graduation status (Tepat Waktu / Tidak Tepat Waktu) using a leakage-safe scikit-learn pipeline.
 
 ---
 
-## 1. Tujuan Project
+## Overview
 
-Tujuan dari project ini adalah:
-
-1. menjelaskan konsep dasar algoritma Decision Tree;
-2. menjelaskan konsep dasar algoritma Random Forest;
-3. menerapkan kedua algoritma pada dataset mahasiswa;
-4. melakukan preprocessing data secara sistematis;
-5. menangani duplikat, konflik ID, missing value, dan outlier;
-6. memvisualisasikan distribusi seluruh fitur sebelum dan sesudah preprocessing;
-7. membandingkan performa Decision Tree dan Random Forest berdasarkan metrik evaluasi klasifikasi.
+This project builds and compares two classification models — a single **Decision Tree** and a **Random Forest** ensemble — to predict whether a student graduates on time. The input is a **synthetic, anonymous student dataset** containing academic and non-academic features. The raw data is intentionally dirty (duplicates, conflicting student IDs, missing values, inconsistent category casing, outliers) and is cleaned through a systematic, auditable preprocessing workflow. All statistical preprocessing lives inside an **sklearn Pipeline** and is fitted on training data only, and both models are tuned with **GridSearchCV** over Stratified K-Fold cross-validation. The full pipeline is reproducible from a pinned environment.
 
 ---
 
-## 2. Dataset
+## Key Results
 
-Dataset yang digunakan berada pada folder:
+Official baseline, evaluated once on a held-out stratified test set (120 rows) after GridSearchCV tuning on the training set (480 rows). All numbers below are generated from the committed artifacts in [`results/`](results/).
 
-```text
-data/dataset_uts_dirty_preprocessing.xlsx
-```
+| Model | Accuracy | Macro Precision | Macro Recall | Macro F1 |
+|---|---:|---:|---:|---:|
+| Decision Tree | 0.8500 | 0.7884 | 0.8152 | 0.8000 |
+| **Random Forest** | **0.8833** | **0.8490** | **0.8121** | **0.8282** |
 
-Dataset memiliki kolom sebagai berikut:
+**Random Forest achieved 88.33% accuracy and 0.8282 macro F1**, outperforming the Decision Tree on this baseline (accuracy +3.3 points, macro F1 +2.8 points).
 
-| Kolom                 | Jenis       | Keterangan                               |
-| --------------------- | ----------- | ---------------------------------------- |
-| ID_Mahasiswa          | Identitas   | ID unik mahasiswa                        |
-| IPK                   | Numerik     | Indeks prestasi kumulatif mahasiswa      |
-| Kehadiran             | Numerik     | Persentase kehadiran mahasiswa           |
-| Jumlah_Organisasi     | Numerik     | Jumlah organisasi yang diikuti mahasiswa |
-| Total_SKS             | Numerik     | Total SKS yang telah ditempuh            |
-| Penghasilan_Orang_Tua | Kategorikal | Tingkat penghasilan orang tua            |
-| Jam_Belajar           | Numerik     | Jumlah jam belajar mahasiswa             |
-| Kualitas_Internet     | Kategorikal | Kualitas akses internet mahasiswa        |
-| Status_Kelulusan      | Target      | Status kelulusan mahasiswa               |
+- Final modeling dataset: **600 rows** (after deduplication and ID-conflict aggregation)
+- Stratified train/test split: **480 / 120**
+- Hyperparameter tuning: **5-fold StratifiedKFold** with `f1_macro` selection
 
-Target klasifikasi pada project ini adalah:
-
-```text
-Status_Kelulusan
-```
-
-Kelas target terdiri atas:
-
-```text
-Tepat Waktu
-Tidak Tepat Waktu
-```
+| Model | Best CV F1-macro |
+|---|---:|
+| Decision Tree | 0.8125 ± 0.0511 |
+| Random Forest | 0.8921 ± 0.0292 |
 
 ---
 
-## 3. Algoritma yang Digunakan
+## Problem / Objective
 
-### 3.1 Decision Tree
+Given a student's academic record, classify the graduation status into one of two classes:
 
-Decision Tree adalah algoritma klasifikasi yang membentuk struktur pohon keputusan. Model ini bekerja dengan membagi data berdasarkan fitur tertentu sehingga menghasilkan aturan keputusan yang mudah dipahami.
+| Label | Meaning |
+|---|---|
+| `Tepat Waktu` | Graduated on time |
+| `Tidak Tepat Waktu` | Did not graduate on time |
 
-Kelebihan Decision Tree:
-
-- mudah dipahami dan divisualisasikan;
-- dapat digunakan untuk data numerik dan kategorikal;
-- proses prediksinya relatif sederhana.
-
-Kekurangan Decision Tree:
-
-- rentan mengalami overfitting;
-- hasil model dapat berubah jika data berubah sedikit;
-- kurang stabil dibandingkan metode ensemble.
-
-### 3.2 Random Forest
-
-Random Forest adalah algoritma ensemble yang membangun banyak Decision Tree, kemudian menggabungkan hasil prediksinya. Dengan menggunakan banyak pohon keputusan, Random Forest umumnya lebih stabil dibandingkan Decision Tree tunggal.
-
-Kelebihan Random Forest:
-
-- lebih stabil dibandingkan Decision Tree tunggal;
-- mampu mengurangi risiko overfitting;
-- dapat memberikan nilai feature importance;
-- cocok digunakan untuk masalah klasifikasi.
-
-Kekurangan Random Forest:
-
-- lebih sulit diinterpretasikan dibandingkan Decision Tree;
-- membutuhkan waktu komputasi lebih besar;
-- hasil model tidak sesederhana satu pohon keputusan.
+This is a **classification** problem. The project does not claim causal inference — it learns associations between input features and the observed graduation outcome.
 
 ---
 
-## 4. Tahapan Project
+## Dataset
 
-Alur utama project dijalankan melalui file:
+The dataset is **synthetic and anonymous** — it does not contain real student records, personal names, or identifiable information. Student identifiers are anonymous codes of the form `MHS###`.
 
-```text
-src/main.py
-```
+**Raw dataset** — tracked as [`data/student_data_raw.xlsx`](data/student_data_raw.xlsx):
 
-Tahapan yang dilakukan adalah:
+- 615 rows × 9 columns
+- 600 unique student IDs
 
-1. membaca dataset;
-2. melakukan audit awal dataset;
-3. membuat visualisasi distribusi seluruh fitur sebelum preprocessing;
-4. menghapus duplikat penuh;
-5. menangani konflik ID mahasiswa menggunakan agregasi;
-6. melakukan standardisasi kategori;
-7. melakukan imputasi missing value;
-8. mendeteksi dan menangani outlier menggunakan metode IQR capping;
-9. membuat visualisasi distribusi seluruh fitur sesudah preprocessing;
-10. memisahkan fitur dan target;
-11. melakukan encoding target dan fitur kategorikal;
-12. membagi data menjadi data training dan testing;
-13. melatih model Decision Tree;
-14. melatih model Random Forest;
-15. mengevaluasi model;
-16. menyimpan hasil evaluasi, visualisasi, dan model.
+**Final modeling dataset** (after cleaning, before the train/test split):
 
----
+- 600 rows
+- Class distribution: `Tepat Waktu` **459** (76.5%) / `Tidak Tepat Waktu` **141** (23.5%)
 
-## Validasi Model dan Pencegahan Data Leakage
+The two classes are **moderately imbalanced** (~3.3 : 1). This is handled by stratified splitting, `class_weight="balanced"`, and macro-averaged metrics.
 
-Pada project ini, preprocessing yang bersifat statistik seperti imputasi missing value dan IQR capping sebaiknya dilakukan di dalam pipeline model. Hal ini bertujuan agar nilai median, modus, dan batas outlier hanya dipelajari dari data training, bukan dari seluruh dataset.
+**Dirty-data characteristics handled by the pipeline:**
 
-Dengan pendekatan ini, data testing tetap berfungsi sebagai data yang belum pernah dilihat oleh model, sehingga hasil evaluasi menjadi lebih objektif.
-
-Validasi model dilakukan menggunakan:
-
-- Train-test split dengan stratifikasi target;
-- Stratified K-Fold Cross Validation;
-- GridSearchCV untuk pencarian hyperparameter terbaik;
-- Metrik evaluasi accuracy, precision, recall, dan F1-score.
-
-## 5. Preprocessing Data
-
-### 5.1 Penghapusan Duplikat Penuh
-
-Duplikat penuh adalah baris data yang seluruh nilainya sama persis pada semua kolom. Pada project ini, duplikat penuh dihapus karena hanya merupakan salinan identik dan tidak menambah variasi informasi pada dataset.
-
-### 5.2 Penanganan Konflik ID Mahasiswa
-
-Konflik ID terjadi ketika satu `ID_Mahasiswa` muncul lebih dari satu kali dengan nilai fitur yang berbeda. Konflik ID tidak dihapus secara langsung, tetapi ditangani dengan agregasi per ID mahasiswa.
-
-Aturan agregasi yang digunakan:
-
-| Jenis Kolom | Metode |
-| ----------- | ------ |
-| Numerik     | Median |
-| Kategorikal | Modus  |
-| Target      | Modus  |
-
-Dengan metode ini, setiap mahasiswa direpresentasikan oleh satu record final.
-
-### 5.3 Standardisasi Kategori
-
-Kolom kategorikal distandardisasi agar format penulisannya seragam. Proses ini dilakukan dengan menghapus spasi berlebih dan menyeragamkan format huruf.
-
-Kolom yang distandardisasi:
-
-```text
-Penghasilan_Orang_Tua
-Kualitas_Internet
-Status_Kelulusan
-```
-
-### 5.4 Imputasi Missing Value
-
-Missing value ditangani menggunakan metode berikut:
-
-| Jenis Data  | Metode Imputasi |
-| ----------- | --------------- |
-| Numerik     | Median          |
-| Kategorikal | Modus           |
-
-Target kosong tidak diimputasi karena target merupakan label yang akan diprediksi.
-
-### 5.5 Penanganan Outlier dengan IQR Capping
-
-Metode **Interquartile Range (IQR)** digunakan untuk mendeteksi dan menangani outlier pada fitur numerik.
-
-Rumus yang digunakan:
-
-```text
-IQR = Q3 - Q1
-Batas bawah = Q1 - 1.5 × IQR
-Batas atas = Q3 + 1.5 × IQR
-```
-
-Outlier tidak dihapus, tetapi ditangani dengan metode **capping**:
-
-- nilai yang lebih kecil dari batas bawah diganti menjadi batas bawah;
-- nilai yang lebih besar dari batas atas diganti menjadi batas atas.
-
-Pendekatan ini digunakan agar jumlah data tetap terjaga, tetapi pengaruh nilai ekstrem terhadap model dapat dikurangi.
+| Issue | Handling |
+|---|---|
+| Full duplicate rows | Dropped (deduplication) |
+| Conflicting student IDs (same ID, different values) | Aggregated per ID (median for numeric, mode for categorical/target) |
+| Inconsistent category casing (e.g. `rendah` / `Rendah`) | Text normalization (strip + title case) |
+| Missing values in IPK, Kehadiran, Jam_Belajar, Kualitas_Internet | Median imputation (numeric) / most-frequent (categorical), inside the pipeline |
+| Outlier in Jam_Belajar (study hours far beyond the plausible range) | IQR capping, inside the pipeline |
 
 ---
 
-## 6. Visualisasi Data
+## Features
 
-Visualisasi dibuat dalam dua tahap utama:
+| Feature | Type | Description |
+|---|---|---|
+| `IPK` | Numeric | Cumulative Grade Point Average (GPA) |
+| `Kehadiran` | Numeric | Attendance percentage |
+| `Jumlah_Organisasi` | Numeric | Number of student organizations joined |
+| `Total_SKS` | Numeric | Total credit units completed |
+| `Jam_Belajar` | Numeric | Study hours (weekly) |
+| `Penghasilan_Orang_Tua` | Categorical | Parental income level (Rendah / Menengah / Tinggi) |
+| `Kualitas_Internet` | Categorical | Internet access quality (Buruk / Sedang / Baik) |
+| `Status_Kelulusan` | Target | Graduation status (see Problem / Objective) |
 
-### 6.1 Visualisasi Sebelum Preprocessing
-
-Visualisasi ini digunakan untuk melihat kondisi awal data sebelum dilakukan pembersihan dan transformasi.
-
-Folder output:
-
-```text
-outputs/visualisasi/01_distribusi_sebelum_preprocessing
-```
-
-Visualisasi yang dibuat:
-
-```text
-distribusi_ipk.png
-distribusi_kehadiran.png
-distribusi_jumlah_organisasi.png
-distribusi_total_sks.png
-distribusi_jam_belajar.png
-distribusi_penghasilan_orang_tua.png
-distribusi_kualitas_internet.png
-distribusi_status_kelulusan.png
-```
-
-### 6.2 Visualisasi Sesudah Preprocessing
-
-Visualisasi ini digunakan untuk melihat kondisi data setelah dilakukan duplikat handling, konflik ID handling, standardisasi kategori, imputasi missing value, dan IQR capping.
-
-Folder output:
-
-```text
-outputs/visualisasi/02_distribusi_sesudah_preprocessing
-```
-
-Visualisasi yang dibuat:
-
-```text
-distribusi_ipk.png
-distribusi_kehadiran.png
-distribusi_jumlah_organisasi.png
-distribusi_total_sks.png
-distribusi_jam_belajar.png
-distribusi_penghasilan_orang_tua.png
-distribusi_kualitas_internet.png
-distribusi_status_kelulusan.png
-```
-
-Pada visualisasi distribusi, label status kelulusan diberi warna berbeda agar lebih mudah dipresentasikan:
-
-| Label                           | Warna |
-| ------------------------------- | ----- |
-| Tepat Waktu / Lulus             | Biru  |
-| Tidak Tepat Waktu / Tidak Lulus | Merah |
-
-### 6.3 Visualisasi Audit Preprocessing
-
-Visualisasi audit digunakan untuk menunjukkan perubahan data pada setiap tahap preprocessing.
-
-Folder output:
-
-```text
-outputs/visualisasi/03_audit_preprocessing
-```
-
-Visualisasi audit meliputi:
-
-```text
-audit_jumlah_baris.png
-audit_duplikat_penuh.png
-audit_konflik_id.png
-audit_missing_value.png
-audit_standardisasi_penghasilan.png
-audit_standardisasi_internet.png
-audit_standardisasi_status_kelulusan.png
-audit_outlier_iqr.png
-audit_split_data.png
-```
-
-### 6.4 Visualisasi Evaluasi Model
-
-Folder output:
-
-```text
-outputs/visualisasi/04_evaluasi_model
-```
-
-Visualisasi evaluasi meliputi:
-
-```text
-perbandingan_evaluasi_model.png
-confusion_matrix_decision_tree.png
-confusion_matrix_random_forest.png
-```
-
-### 6.5 Visualisasi Feature Importance
-
-Folder output:
-
-```text
-outputs/visualisasi/05_feature_importance
-```
-
-Visualisasi yang dibuat:
-
-```text
-feature_importance_random_forest.png
-```
-
-Feature importance menunjukkan kontribusi relatif setiap fitur dalam membantu model Random Forest melakukan prediksi. Nilai ini bukan korelasi dan tidak menunjukkan hubungan sebab-akibat.
+> **Important limitation:** `IPK` (GPA) and `Total_SKS` (credits completed) are **retrospective, end-of-study signals**. This project therefore demonstrates a **classification methodology**, not an early-warning graduation/dropout prediction system. See [Limitations](#limitations).
 
 ---
 
-## 7. Struktur Folder Project
+## Data Cleaning & Preprocessing
 
-Struktur utama project:
+The preprocessing has two deliberately separated stages:
+
+**1. Pre-split deterministic cleaning** (identical for every future data point, applied to the full dataset before modeling — no statistics are learned from the data):
+
+- **Deduplication** — removal of fully identical rows
+- **ID-conflict aggregation** — multiple records per student ID are merged into one row per student (median for numeric features, mode for categorical features and target)
+- **Category text normalization** — trimming whitespace and standardizing casing
+
+**2. Statistical preprocessing** (fitted inside the sklearn Pipeline, on training folds only):
+
+- **Imputation** — `SimpleImputer` with median (numeric) and most-frequent (categorical)
+- **IQR capping** — a custom `IQRCapper` transformer clips numeric outliers to `[Q1 − 1.5·IQR, Q3 + 1.5·IQR]` bounds learned from the training fold
+- **Encoding** — `OrdinalEncoder` for the two categorical features (handle_unknown="use_encoded_value")
+
+Because stage 2 lives inside the Pipeline, the imputation medians/modes and IQR bounds are recomputed for every CV fold and for the final model — using training data only.
+
+---
+
+## Leakage Prevention
+
+Leakage prevention is a first-class design goal of this project:
+
+- **Statistical preprocessing is inside the sklearn `Pipeline`** — imputation and IQR capping are not fit on the full dataset; their parameters (medians, most-frequent values, IQR bounds) are learned from training folds only.
+- **GridSearchCV fits the pipeline on `X_train` only.** Cross-validation refits the preprocessing inside every fold, so validation scores never see fold-test statistics.
+- **Validation occurs through StratifiedKFold** on the training set; hyperparameter selection uses `f1_macro`.
+- **The test set is reserved for the final evaluation** — it is never used for tuning, model selection, or any preprocessing decision.
+- Deterministic cleaning (dedup, ID aggregation, casing normalization) is applied before the split, but it involves **no data-derived statistics**, so it cannot leak test information into training.
+
+---
+
+## Train / Test & Validation Strategy
+
+| Setting | Value |
+|---|---|
+| Split | Stratified 80/20 (`train_test_split`, stratify=y) |
+| Train / Test size | 480 / 120 |
+| `random_state` | 42 (split, CV, and both classifiers) |
+| CV for tuning | `StratifiedKFold(n_splits=5, shuffle=True, random_state=42)` |
+| Tuning metric | `f1_macro` |
+| Class weighting | `class_weight="balanced"` on both classifiers |
+
+The number of CV folds is chosen as `min(5, smallest class count)` to guarantee class representation in every fold (here: 5).
+
+---
+
+## Decision Tree
+
+A single `DecisionTreeClassifier` inside the same leakage-safe Pipeline (imputation → IQR capping → encoding → classifier). Tuned via GridSearchCV over criterion, max_depth, min_samples_split, and min_samples_leaf.
+
+**Best parameters** (from the rank-1 row in [`results/cv_results_decision_tree.csv`](results/cv_results_decision_tree.csv)):
+
+| Hyperparameter | Value |
+|---|---|
+| criterion | gini |
+| max_depth | 7 |
+| min_samples_leaf | 1 |
+| min_samples_split | 2 |
+
+**Official test metrics:** Accuracy 0.8500 · Macro P/R/F1 0.7884 / 0.8152 / 0.8000 · Best CV F1-macro 0.8125
+
+Per-class performance on the test set (from [`results/classification_report_decision_tree.txt`](results/classification_report_decision_tree.txt)):
+
+| Class | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| Tepat Waktu | 0.92 | 0.88 | 0.90 | 92 |
+| Tidak Tepat Waktu | 0.66 | 0.75 | 0.70 | 28 |
+
+---
+
+## Random Forest
+
+A `RandomForestClassifier` inside the same leakage-safe Pipeline, tuned over the same dimensions plus `n_estimators`.
+
+**Best parameters** (from the rank-1 row in [`results/cv_results_random_forest.csv`](results/cv_results_random_forest.csv)):
+
+| Hyperparameter | Value |
+|---|---|
+| criterion | gini |
+| max_depth | 7 |
+| min_samples_leaf | 2 |
+| min_samples_split | 5 |
+| n_estimators | 200 |
+
+**Official test metrics:** Accuracy 0.8833 · Macro P/R/F1 0.8490 / 0.8121 / 0.8282 · Best CV F1-macro 0.8921
+
+Per-class performance on the test set (from [`results/classification_report_random_forest.txt`](results/classification_report_random_forest.txt)):
+
+| Class | Precision | Recall | F1 | Support |
+|---:|---:|---:|---:|---:|
+| Tepat Waktu | 0.91 | 0.95 | 0.93 | 92 |
+| Tidak Tepat Waktu | 0.79 | 0.68 | 0.73 | 28 |
+
+In the official baseline, Random Forest outperformed the Decision Tree on accuracy and macro F1. This comparison reflects this dataset and this evaluation setup — it is not a claim that Random Forest is universally better.
+
+---
+
+## Hyperparameter Tuning
+
+Both models are tuned with `GridSearchCV` under identical conditions (same folds, same `f1_macro` selection, same pipeline structure), so the comparison is fair:
+
+| Hyperparameter | Decision Tree best | Random Forest best |
+|---|---|---|
+| criterion | gini | gini |
+| max_depth | 7 | 7 |
+| min_samples_leaf | 1 | 2 |
+| min_samples_split | 2 | 5 |
+| n_estimators | — | 200 |
+
+Search spaces (grids):
+
+- Decision Tree: criterion ∈ {gini, entropy} · max_depth ∈ {3, 5, 7, None} · min_samples_split ∈ {2, 5, 10} · min_samples_leaf ∈ {1, 2, 4}
+- Random Forest: the above plus n_estimators ∈ {100, 200}
+
+Full per-candidate CV scores are committed in [`results/cv_results_decision_tree.csv`](results/cv_results_decision_tree.csv) and [`results/cv_results_random_forest.csv`](results/cv_results_random_forest.csv).
+
+---
+
+## Evaluation Results
+
+Comparison of official test metrics (from [`results/hasil_evaluasi_model.csv`](results/hasil_evaluasi_model.csv)):
+
+| Model | Accuracy | Macro Precision | Macro Recall | Macro F1 |
+|---|---:|---:|---:|---:|
+| Decision Tree | 0.8500 | 0.7884 | 0.8152 | 0.8000 |
+| Random Forest | 0.8833 | 0.8490 | 0.8121 | 0.8282 |
+
+Confusion matrices (rows = actual, columns = predicted; class order: Tepat Waktu, Tidak Tepat Waktu):
+
+| Model | Matrix |
+|---|---|
+| Decision Tree | [[81, 11], [7, 21]] |
+| Random Forest | [[86, 6], [9, 19]] |
+
+![Confusion Matrix - Decision Tree](results/confusion_matrix_decision_tree.png)
+
+![Confusion Matrix - Random Forest](results/confusion_matrix_random_forest.png)
+
+![Model Comparison](results/perbandingan_evaluasi_model.png)
+
+---
+
+## Feature Importance
+
+Random Forest feature importances (from [`results/feature_importance_random_forest.csv`](results/feature_importance_random_forest.csv)):
+
+| Feature | Importance |
+|---|---:|
+| Jam_Belajar (study hours) | 0.4112 |
+| IPK (GPA) | 0.3030 |
+| Kehadiran (attendance) | 0.1012 |
+| Total_SKS (credits) | 0.0663 |
+| Jumlah_Organisasi (organizations) | 0.0645 |
+| Penghasilan_Orang_Tua (parental income) | 0.0286 |
+| Kualitas_Internet (internet quality) | 0.0252 |
+
+![Feature Importance - Random Forest](results/feature_importance_random_forest.png)
+
+> **Caveat:** Feature importance measures predictive contribution within this trained model — it is **not** evidence of causation.
+
+---
+
+## Project Structure
 
 ```text
-algoritma-desicion-tree-dan-random-forest/
-│
-├── data/
-│   └── dataset_uts_dirty_preprocessing.xlsx
-│
-├── models/
-│   ├── label_encoder.pkl
-│   ├── model_decision_tree.pkl
-│   └── model_random_forest.pkl
-│
-├── outputs/
-│   └── visualisasi/
-│       ├── 01_distribusi_sebelum_preprocessing/
-│       ├── 02_distribusi_sesudah_preprocessing/
-│       ├── 03_audit_preprocessing/
-│       ├── 04_evaluasi_model/
-│       └── 05_feature_importance/
-│
-├── src/
-│   ├── config.py
-│   ├── main.py
-│   ├── modeling.py
-│   ├── preprocessing.py
-│   ├── utils.py
-│   └── visualization.py
-│
+project-root/
 ├── README.md
 ├── requirements.txt
-└── .gitignore
+├── .gitignore
+├── data/
+│   └── student_data_raw.xlsx        # synthetic, anonymous raw dataset
+├── src/
+│   ├── config.py                    # paths, columns, split/model settings
+│   ├── main.py                      # end-to-end pipeline entry point
+│   ├── preprocessing.py             # cleaning, dedup, aggregation, audits
+│   ├── modeling.py                  # pipelines, GridSearchCV, evaluation
+│   ├── visualization.py             # distribution/audit/eval plots
+│   └── utils.py                     # helpers (dirs, saving, mode/text utils)
+├── results/                         # committed official baseline artifacts
+│   ├── hasil_evaluasi_model.csv
+│   ├── classification_report_decision_tree.txt
+│   ├── classification_report_random_forest.txt
+│   ├── confusion_matrix_decision_tree.png
+│   ├── confusion_matrix_random_forest.png
+│   ├── perbandingan_evaluasi_model.png
+│   ├── feature_importance_random_forest.csv
+│   ├── feature_importance_random_forest.png
+│   ├── cv_results_decision_tree.csv
+│   ├── cv_results_random_forest.csv
+│   └── provenance.txt               # full run provenance
+├── models/                          # generated locally by the pipeline (git-ignored)
+└── outputs/                         # generated locally by the pipeline (git-ignored)
 ```
 
 ---
 
-## 8. Struktur Kode
+## Installation
 
-### 8.1 `src/main.py`
+Requires **Python 3.11** (the official portfolio baseline was generated with Python 3.11.9 and scikit-learn 1.5.2; all pins are in [`requirements.txt`](requirements.txt)).
 
-File utama untuk menjalankan seluruh alur project dari awal sampai akhir.
-
-### 8.2 `src/config.py`
-
-Berisi konfigurasi path, nama kolom, daftar fitur numerik, daftar fitur kategorikal, target, dan lokasi output.
-
-### 8.3 `src/preprocessing.py`
-
-Berisi fungsi untuk:
-
-- load dataset;
-- audit awal dataset;
-- hapus duplikat penuh;
-- agregasi konflik ID;
-- standardisasi kategori;
-- imputasi missing value;
-- IQR capping;
-- pemisahan fitur dan target.
-
-### 8.4 `src/visualization.py`
-
-Berisi fungsi untuk membuat:
-
-- distribusi fitur sebelum preprocessing;
-- distribusi fitur sesudah preprocessing;
-- audit preprocessing;
-- evaluasi model;
-- confusion matrix;
-- feature importance.
-
-### 8.5 `src/modeling.py`
-
-Berisi fungsi untuk:
-
-- encoding target;
-- preprocessing fitur;
-- training Decision Tree;
-- training Random Forest;
-- evaluasi model;
-- classification report;
-- feature importance;
-- penyimpanan model.
-
-### 8.6 `src/utils.py`
-
-Berisi fungsi bantu untuk membuat folder output, menyimpan DataFrame, dan menampilkan judul proses di terminal.
-
----
-
-## 9. Cara Menjalankan Project
-
-### 9.1 Aktifkan Virtual Environment
+**Windows:**
 
 ```cmd
+py -3.11 -m venv .venv
 .venv\Scripts\activate
-```
-
-### 9.2 Install Dependensi
-
-```cmd
 python -m pip install -r requirements.txt
 ```
 
-### 9.3 Jalankan Program
+**Linux / macOS:**
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+---
+
+## How to Run
 
 ```cmd
-python src\main.py
+python src\main.py        (Windows)
+python src/main.py        (Linux/macOS)
 ```
+
+The pipeline runs end to end: audit → cleaning → distributions → tuning (GridSearchCV) → training → evaluation → export.
+
+Generated artifacts:
+
+- `models/` — trained model pickles + label encoder (generated locally, **not committed**; see Reproducibility)
+- `outputs/` — full visualization set, audit CSVs, classification reports (generated locally, **not committed**)
+- `results/` — the **committed official baseline snapshot** from a verified pinned-environment run, curated for review
 
 ---
 
-## 10. Output Project
+## Reproducibility
 
-Setelah program dijalankan, output utama akan tersimpan pada folder `models` dan `outputs`.
-
-### 10.1 Output Model
-
-```text
-models/model_decision_tree.pkl
-models/model_random_forest.pkl
-models/label_encoder.pkl
-```
-
-### 10.2 Output Visualisasi
-
-```text
-outputs/visualisasi/
-```
-
-Gambar yang digunakan untuk PPT sebaiknya diambil dari folder `outputs/visualisasi`, terutama:
-
-```text
-outputs/visualisasi/01_distribusi_sebelum_preprocessing
-outputs/visualisasi/02_distribusi_sesudah_preprocessing
-outputs/visualisasi/03_audit_preprocessing
-outputs/visualisasi/04_evaluasi_model
-outputs/visualisasi/05_feature_importance
-```
-
-### 10.3 Output Data Audit
-
-Program juga menghasilkan file data audit seperti CSV dan TXT. File ini digunakan sebagai bukti pendukung proses, bukan sebagai bahan utama PPT.
-
-Contoh output data audit:
-
-```text
-audit_dataset_awal.csv
-audit_duplikat_penuh.csv
-audit_konflik_id.csv
-audit_missing_value.csv
-hasil_iqr_outlier.csv
-hasil_evaluasi_model.csv
-classification_report_decision_tree.txt
-classification_report_random_forest.txt
-```
+- `RANDOM_STATE = 42` everywhere: split, cross-validation, and both classifiers
+- Stratified split + StratifiedKFold with fixed seed
+- Dependency pins in `requirements.txt`
+- Full run provenance (HEAD commit, environment, pip freeze, dataset hash, commands, and all official metrics) is committed at [`results/provenance.txt`](results/provenance.txt)
+- The official baseline was generated with **scikit-learn 1.5.2** in an isolated environment; the key evaluation figures were reproduced **byte-identically** to the project's historical output
+- Model pickles are **version-sensitive** across scikit-learn releases, so they are deliberately not committed — they are regenerated locally by running the pipeline
+- Note on cross-version behavior: a later audit run under scikit-1.9.x produced slightly different Random Forest numbers; that run is **not** the portfolio baseline and is recorded only as a cross-version comparison reference in the provenance file
 
 ---
 
-## 11. Evaluasi Model
+## Limitations
 
-Model dievaluasi menggunakan metrik:
-
-| Metrik           | Keterangan                                                       |
-| ---------------- | ---------------------------------------------------------------- |
-| Accuracy         | Mengukur proporsi prediksi benar dari seluruh data uji           |
-| Precision        | Mengukur ketepatan prediksi pada masing-masing kelas             |
-| Recall           | Mengukur kemampuan model menemukan data pada masing-masing kelas |
-| F1-score         | Menggabungkan precision dan recall dalam satu ukuran             |
-| Confusion Matrix | Menampilkan jumlah prediksi benar dan salah per kelas            |
-
-Perbandingan hasil Decision Tree dan Random Forest divisualisasikan pada:
-
-```text
-outputs/visualisasi/04_evaluasi_model/perbandingan_evaluasi_model.png
-```
+- **Synthetic dataset** — not real academic records; results demonstrate methodology, not real-world performance
+- **Small data** — ~600 modeling rows; metrics on a 120-row test set carry non-trivial variance
+- **Class imbalance** — 76.5% / 23.5%; macro metrics and class weighting are used, but recall on the minority class remains the hardest metric (RF: 0.68)
+- **Retrospective features** — `IPK` and `Total_SKS` are end-of-study signals; this is a classification study, **not an early-warning deployment system**
+- **Single train/test split** — no repeated split or nested-CV estimate of metric variance
+- `OrdinalEncoder` applied to nominal categorical features (adequate for tree-based models, but not a one-hot scheme)
+- No probability calibration
+- Feature importance is not causal evidence
+- Generalization to real institutions is not established
 
 ---
 
-## 12. Catatan Feature Importance
+## Tech Stack
 
-Feature importance digunakan untuk melihat fitur mana yang paling banyak berkontribusi dalam proses prediksi model Random Forest.
-
-Feature importance tidak sama dengan korelasi. Korelasi mengukur hubungan statistik antarvariabel, sedangkan feature importance menunjukkan kontribusi fitur terhadap keputusan model.
-
-Nilai feature importance juga tidak dapat diartikan sebagai hubungan sebab-akibat.
-
----
-
-## 13. Kesimpulan Project
-
-Project ini menunjukkan bahwa algoritma Decision Tree dan Random Forest dapat digunakan untuk klasifikasi status kelulusan mahasiswa. Proses preprocessing menjadi bagian penting karena dataset memiliki duplikat penuh, konflik ID, missing value, variasi kategori, dan outlier numerik.
-
-Decision Tree memberikan model yang lebih mudah dijelaskan, sedangkan Random Forest memberikan pendekatan ensemble yang lebih stabil. Visualisasi sebelum dan sesudah preprocessing membantu menunjukkan perubahan data secara lebih jelas, terutama untuk kebutuhan presentasi.
+- **Python 3.11** — language runtime
+- **pandas** — data handling, Excel ingestion
+- **NumPy** — numeric operations
+- **scikit-learn** — pipelines, models, GridSearchCV, metrics
+- **Matplotlib** — visualizations
+- **joblib** — model persistence
+- **openpyxl** — Excel reader backend
 
 ---
+
+## Author
+
+**Bagus Pramana** — Computer Science Student
+
+*Originally developed as a university Data Mining project and later refactored into a standalone portfolio project.*
